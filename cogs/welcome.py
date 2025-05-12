@@ -12,34 +12,35 @@ class Welcome(commands.Cog):
         """
         Event listener that triggers when a new member joins the server.
         """
-        # Debugging: Print when the event is triggered
-        print(f"on_member_join triggered for {member.name}")
-
-        # Replace 'YOUR_CHANNEL_ID' with the ID of your welcome channel
+        # Use the channel ID directly
         channel = member.guild.get_channel(1369400705235947602)
-        print(f"Channel found: {channel}")  # Debugging: Check if the channel is found
 
         if channel:
-            await channel.send(f"Welcome to wisp!, {member.mention}! 🎉")
-        else:
-            print("Welcome channel not found.")
+            # Create an embed for the welcome message
+            embed = discord.Embed(
+                title="🎉 Welcome to Wisp! 🎉",
+                description=(
+                    f"Welcome to the server, {member.mention}!\n\n"
+                    "We're thrilled to have you here. Go get some grips!, "
+                ),
+                color=discord.Color.blue()
+            )
+            embed.set_image(url="https://i.ibb.co/hR4TW388/welcome-image.png")
+            embed.set_footer(text="Enjoy your stay! 🌟")
+
+            # Send the embed to the welcome channel
+            await channel.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
         """
         Event listener that triggers when a member leaves the server.
         """
-        # Debugging: Print when the event is triggered
-        print(f"on_member_remove triggered for {member.name}")
-
-        # Replace 'YOUR_CHANNEL_ID' with the ID of your welcome channel
+        # Use the channel ID directly
         channel = member.guild.get_channel(1369400705235947602)
-        print(f"Channel found: {channel}")  # Debugging: Check if the channel is found
 
         if channel:
-            await channel.send(f"Goodbye, {member.name}. Dont join maid cafe! 😢")
-        else:
-            print("Welcome channel not found.")
+            await channel.send(f"Goodbye, {member.name}. Don't join maid cafe! 😢")
 
 # Setup function to add the cog to the bot
 async def setup(bot):
