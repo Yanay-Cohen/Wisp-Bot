@@ -9,6 +9,7 @@ load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True  # Required to read messages
+intents.members = True  # Required for on_member_join and on_member_remove
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
