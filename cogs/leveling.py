@@ -16,6 +16,7 @@ class Leveling(commands.Cog):
             20: "Jonin",
             35: "Anbu"
         }
+        self.announcement_channel_id = "1371588950002503790"  # Replace with the actual channel ID
         # Load levels data
         if not os.path.exists(self.levels_file):
             with open(self.levels_file, "w") as f:
@@ -34,6 +35,10 @@ class Leveling(commands.Cog):
         if message.author.bot:
             return  # Ignore bot messages
 
+        # Prevent duplicate handling
+        if not message.guild:
+            return  # Ignore DMs
+
         # Load levels data
         levels = self.load_levels()
         user_id = str(message.author.id)
@@ -43,35 +48,40 @@ class Leveling(commands.Cog):
             levels[user_id] = {"xp": 0, "level": 1}
         levels[user_id]["xp"] += 1
 
-        # Calculate level
+        # Calculate new level
+        current_level = levels[user_id]["level"]
         new_level = levels[user_id]["xp"] // 100
-        if new_level > levels[user_id]["level"]:
+
+        if new_level > current_level:
             levels[user_id]["level"] = new_level
 
-            # Create a themed embed for level-up
-            embed = discord.Embed(
-                title="🎉 Level Up! 🎉",
-                description=f"{message.author.mention}, you leveled up to **Level {new_level}**!",
-                color=discord.Color.blue()
-            )
-            embed.set_footer(text="Keep chatting to level up further!")
-            await message.channel.send(embed=embed)
+            # Announce level-up in the specified channel
+            guild = message.guild
+            announcement_channel = guild.get_channel(int(self.announcement_channel_id))
+            if announcement_channel:
+                embed = discord.Embed(
+                    title="🎉 Level Up! 🎉",
+                    description=f"{message.author.mention} leveled up to **Level {new_level}**!",
+                    color=discord.Color.blue()
+                )
+                embed.set_footer(text="Keep chatting to level up further!")
+                await announcement_channel.send(embed=embed)
 
             # Assign role based on level
-            guild = message.guild
             for level, role_name in self.roles.items():
                 role = discord.utils.get(guild.roles, name=role_name)
-                if new_level >= level and role:
+                if new_level == level and role:  # Only announce promotion when reaching a new rank
                     await message.author.add_roles(role)
 
-                    # Create a themed embed for role promotion
-                    embed = discord.Embed(
-                        title="🎖️ Role Promotion! 🎖️",
-                        description=f"{message.author.mention} has been promoted to **{role_name}**!",
-                        color=discord.Color.gold()
-                    )
-                    embed.set_footer(text="Congratulations on your achievement!")
-                    await message.channel.send(embed=embed)
+                    # Skip announcing "Genin" role
+                    if role_name != "Genin":
+                        embed = discord.Embed(
+                            title="🎖️ Role Promotion! 🎖️",
+                            description=f"{message.author.mention} has been promoted to **{role_name}**!",
+                            color=discord.Color.gold()
+                        )
+                        embed.set_footer(text="Congratulations on your achievement!")
+                        await announcement_channel.send(embed=embed)
 
         # Save levels data
         self.save_levels(levels)
@@ -129,6 +139,35 @@ class Leveling(commands.Cog):
             color=discord.Color.green()
         )
         embed.set_footer(text="Use /setlevel to adjust levels as needed.")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="mylevel", description="Check your current level and XP.")
+    async def my_level(self, interaction: discord.Interaction):
+        """
+        Slash command to check the user's current level and XP.
+        """
+        user_id = str(interaction.user.id)
+        levels = self.load_levels()
+
+        if user_id not in levels:
+            embed = discord.Embed(
+                title="📊 Level Info",
+                description="You haven't earned any XP yet. Start chatting to gain XP!",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text="Keep chatting to level up!")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        xp = levels[user_id]["xp"]
+        level = levels[user_id]["level"]
+
+        embed = discord.Embed(
+            title="📊 Your Level Info",
+            description=f"**Level**: {level}\n**XP**: {xp} / {(level + 1) * 100}",
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text="Keep chatting to level up!")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def setup(bot):
