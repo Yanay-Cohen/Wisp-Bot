@@ -7,23 +7,11 @@ import asyncio
 # Load environment variables from .env file
 load_dotenv()
 
-# --- CONFIGURATION ---
-DISCORD_CHANNEL_ID = 1375935338786193428  # Replace with your Discord channel ID
-MINECRAFT_SERVER_ADDRESS = "88.211.231.4"   # Replace with your Minecraft server address
-MINECRAFT_SERVER_PORT = 25575          # Replace with your Minecraft server port
-MINECRAFT_RCON_PASSWORD = os.getenv("MINECRAFT_RCON_PASSWORD")  # Add this to your .env
-
 intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+intents.message_content = True  # Required to read messages
+intents.members = True  # Required for on_member_join and on_member_remove
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-from minecraft_bridge import MinecraftBridge
-from discord_bridge import DiscordBridge
-
-minecraft_bridge = MinecraftBridge(MINECRAFT_SERVER_ADDRESS, MINECRAFT_SERVER_PORT, MINECRAFT_RCON_PASSWORD)
-discord_bridge = DiscordBridge(bot, DISCORD_CHANNEL_ID, minecraft_bridge)
 
 @bot.event
 async def on_ready():
@@ -32,15 +20,23 @@ async def on_ready():
     await sync_commands()
 
 async def sync_commands():
+    """
+    Syncs slash commands with Discord.
+    """
     try:
+        # Sync new slash commands
         synced = await bot.tree.sync()
         print(f"Synced {len(synced)} slash commands.")
     except Exception as e:
         print(f"Failed to sync commands: {e}")
 
 @bot.command(name="reload", hidden=True)
-@commands.is_owner()
+@commands.is_owner()  # Restrict this command to the bot owner
 async def reload(ctx, cog: str):
+    """
+    Reloads a specific cog.
+    Usage: !reload <cog_name>
+    """
     try:
         await bot.unload_extension(f"cogs.{cog}")
         await bot.load_extension(f"cogs.{cog}")
@@ -48,26 +44,16 @@ async def reload(ctx, cog: str):
     except Exception as e:
         await ctx.send(f"Failed to reload cog: {cog}\n{e}")
 
-@bot.command(name="pnum")
-async def player_count(ctx):
-    """Shows the number of players online in the Minecraft server."""
-    count = await minecraft_bridge.get_player_count()
-    if count is not None:
-        await ctx.send(f"There are {count} players online.")
-    else:
-        await ctx.send("Could not retrieve player count.")
+# Dynamically load all cogs from the cogs folder
+async def load_cogs():
+    for filename in os.listdir("./cogs"):
+        if filename.endswith(".py") and filename != "__init__.py":  # Skip __init__.py
+            await bot.load_extension(f"cogs.{filename[:-3]}")
 
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-    if message.channel.id == DISCORD_CHANNEL_ID:
-        await discord_bridge.handle_discord_message(message)
-    await bot.process_commands(message)
-
+# Run the bot
 async def main():
     async with bot:
+        await load_cogs()
         await bot.start(os.getenv("DISCORD_BOT_TOKEN"))
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
